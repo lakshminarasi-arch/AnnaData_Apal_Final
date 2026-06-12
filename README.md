@@ -314,11 +314,10 @@ The dataset `synthetic_historical_demand.csv` was **programmatically generated**
 
 **Group 6 · APAL 02 · Post Graduate Programme · IIM Calcutta**
 
-| Name | 
+| Repo Owner | 
 |------|
-| Lakshmi Narasimhan | Aastha Narang | Amay Jha | Mrinmoy Bhattacharjee | Mithun Chakraborty | Maulik Patel | Murali Krishna Yeleshwarapu | Saurabh Bhatia | Sandip Kumar Chakraborty | Saurabh Mandal | Sumit Sharma | Sweety Panigraphi |
+| Lakshmi Narasimhan | 
 
-**Submitted to:** Prof. [Saravana Jayakumar], APAL 02  
 **Academic Year:** 2025–26
 
 ---
