@@ -309,7 +309,7 @@ function getFifaMultiplier(dateStr) {
  * @returns {{ forecast, dates, daysOfWeek, eventFlags, eventLabels }}
  */
 function computeForecast(branchId, dishIds, days, startDate) {
-  const start = new Date(startDate || '2025-04-12');
+  const start = new Date(startDate || tomorrowISO());
   const branch = BRANCHES.find(b => b.id === branchId) || BRANCHES[0];
   const branchFactor = branch.covers / 180;
 
@@ -377,7 +377,7 @@ function buildBOM(dishIds, forecast) {
 
 /** Generate contextual AI insights */
 function buildInsights(dishIds, startDate) {
-  const start = new Date(startDate || '2025-04-12');
+  const start = new Date(startDate || tomorrowISO());
   const end   = new Date(start); end.setDate(end.getDate() + 6);
 
   const hasBiryani = dishIds.some(id => BIRYANI_IDS.has(id));
@@ -510,6 +510,13 @@ function buildInsights(dishIds, startDate) {
   return insights;
 }
 
+/** Tomorrow's date as YYYY-MM-DD — used as default startDate when none is supplied */
+function tomorrowISO() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return isoDate(d);
+}
+
 // ── NETLIFY HANDLER ───────────────────────────────────────────────────────────
 
 const CORS_HEADERS = {
@@ -549,7 +556,7 @@ exports.handler = async (event) => {
           ? params.dishes.split(',').map(Number).filter(Boolean)
           : MENU.map(m => m.id);
         const days      = Math.min(7, Math.max(1, parseInt(params.days) || 7));
-        const startDate = params.startDate || '2025-04-12';
+        const startDate = params.startDate || tomorrowISO();
 
         const data = computeForecast(branchId, dishIds, days, startDate);
         return ok({ ...data, generatedAt: new Date().toISOString() });
@@ -562,7 +569,7 @@ exports.handler = async (event) => {
           ? params.dishes.split(',').map(Number).filter(Boolean)
           : MENU.map(m => m.id);
         const days      = Math.min(7, Math.max(1, parseInt(params.days) || 7));
-        const startDate = params.startDate || '2025-04-12';
+        const startDate = params.startDate || tomorrowISO();
 
         const { forecast } = computeForecast(branchId, dishIds, days, startDate);
         const vendorMap    = buildBOM(dishIds, forecast);
@@ -574,7 +581,7 @@ exports.handler = async (event) => {
         const dishIds   = params.dishes
           ? params.dishes.split(',').map(Number).filter(Boolean)
           : MENU.map(m => m.id);
-        const startDate = params.startDate || '2025-04-12';
+        const startDate = params.startDate || tomorrowISO();
         const insights  = buildInsights(dishIds, startDate);
         return ok({ insights, generatedAt: new Date().toISOString() });
       }
