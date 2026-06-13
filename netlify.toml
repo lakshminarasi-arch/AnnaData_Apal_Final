@@ -14,6 +14,11 @@
 # the longer /.netlify/functions/api path.
 
 [[redirects]]
+  from   = "/"
+  to     = "/annadata_demo.html"
+  status = 200
+  
+[[redirects]]
   from   = "/api"
   to     = "/.netlify/functions/api"
   status = 200
