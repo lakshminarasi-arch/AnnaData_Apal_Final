@@ -97,12 +97,19 @@ const DOW_MULT = [1.00, 0.72, 0.68, 1.55, 1.40, 0.88, 1.15];
  * All arrays: [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
  */
 const CATEGORY_DOW = {
-  'Starters':       [1.10, 0.65, 0.62, 1.45, 1.30, 1.18, 1.52],
-  'Main - Non Veg': [1.05, 0.73, 0.70, 1.55, 1.40, 0.90, 1.25],
-  'Main - Veg':     [0.92, 0.80, 0.78, 1.50, 1.42, 0.95, 1.08],
-  'Breads':         [0.98, 0.73, 0.70, 1.54, 1.40, 0.90, 1.18],
-  'Rice':           [1.02, 0.72, 0.70, 1.52, 1.40, 0.88, 1.18],
-  'Desserts':       [1.28, 0.60, 0.58, 1.38, 1.25, 1.12, 1.52],
+  //                  Sun    Mon    Tue    Wed    Thu    Fri    Sat
+  // Starters: group-social ordering → SATURDAY is the peak, Friday > Wednesday
+  'Starters':       [1.12,  0.62,  0.58,  1.30,  1.15,  1.35,  1.68],
+  // Main - Non Veg: biryani & occasion dishes → WEDNESDAY peak, moderate Saturday
+  'Main - Non Veg': [1.05,  0.73,  0.70,  1.58,  1.42,  0.88,  1.25],
+  // Main - Veg: office/corporate crowd → WEDNESDAY peak, weekend barely stands out
+  'Main - Veg':     [0.88,  0.85,  0.82,  1.60,  1.50,  0.90,  0.98],
+  // Breads: tracks footfall → WEDNESDAY peak, visible Friday dip
+  'Breads':         [0.98,  0.73,  0.70,  1.60,  1.42,  0.85,  1.18],
+  // Rice: tracks biryani/mains → WEDNESDAY peak, deepest Friday dip of any category
+  'Rice':           [1.00,  0.72,  0.68,  1.62,  1.44,  0.82,  1.15],
+  // Desserts: celebratory/social item → SATURDAY is the peak, Friday also strong
+  'Desserts':       [1.35,  0.55,  0.52,  1.20,  1.05,  1.28,  1.70],
 };
 
 /**
