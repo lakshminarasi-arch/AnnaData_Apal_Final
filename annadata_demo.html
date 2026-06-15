@@ -109,6 +109,10 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--cream);color:
   background:linear-gradient(90deg,var(--saffron),var(--amber));opacity:0;transition:opacity .2s;}
 .branch-card:hover{border-color:var(--saffron);box-shadow:var(--shadow-lg);transform:translateY(-4px);}
 .branch-card:hover::before{opacity:1;}
+.branch-card.active-branch{border-color:var(--green);box-shadow:0 0 0 3px rgba(45,122,95,.12);}
+.branch-card.active-branch::before{opacity:1;background:linear-gradient(90deg,var(--green),#02C39A);}
+.active-badge{position:absolute;top:12px;right:12px;background:var(--green);color:#fff;
+  font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.5px;}
 .branch-emoji{font-size:42px;display:block;margin-bottom:12px;}
 .branch-name{font-size:18px;font-weight:700;color:var(--dark);}
 .branch-addr{font-size:13px;color:var(--gray);margin:4px 0 14px;line-height:1.5;}
@@ -920,8 +924,11 @@ async function handleLogin(){
 ══════════════════════════════════════════════════════ */
 function buildBranchGrid(){
   const grid = document.getElementById('branch-grid');
-  grid.innerHTML = BRANCHES.map(b=>`
-    <div class="branch-card" onclick="selectBranch('${b.id}')">
+  grid.innerHTML = BRANCHES.map(b=>{
+    const isCurrent = selectedBranch && selectedBranch.id === b.id;
+    return `
+    <div class="branch-card${isCurrent?' active-branch':''}" onclick="selectBranch('${b.id}')">
+      ${isCurrent ? '<div class="active-badge">✓ CURRENT</div>' : ''}
       <span class="branch-emoji">${b.emoji}</span>
       <div class="branch-name">Spice Garden – ${b.name}</div>
       <div class="branch-addr">${b.addr}</div>
@@ -932,16 +939,21 @@ function buildBranchGrid(){
         <div class="bstat"><div class="bstat-v">${b.staff}</div><div class="bstat-l">Staff Members</div></div>
         <div class="bstat"><div class="bstat-v">Est. ${b.since}</div><div class="bstat-l">Year Opened</div></div>
       </div>
-      <button class="btn-branch">Select This Branch →</button>
-    </div>
-  `).join('');
+      <button class="btn-branch" style="${isCurrent?'background:var(--green)':''}">${isCurrent ? 'Continue with this branch →' : 'Select This Branch →'}</button>
+    </div>`;
+  }).join('');
 }
 
 function selectBranch(id){
+  const isSameBranch = selectedBranch && selectedBranch.id === id;
   selectedBranch = BRANCHES.find(b=>b.id===id);
-  selectedDishes = [];
-  allDishesMode = false;
-  activeCat = 'All';
+  if(!isSameBranch){
+    // Different branch — clear dish selection for a fresh start
+    selectedDishes = [];
+    allDishesMode = false;
+    activeCat = 'All';
+  }
+  // Same branch — selectedDishes, allDishesMode, activeCat all preserved
   document.getElementById('nav-branch-name').textContent = selectedBranch.name;
   document.getElementById('nav-branch-label').textContent = 'Spice Garden – '+selectedBranch.name;
   buildDishScreen();
