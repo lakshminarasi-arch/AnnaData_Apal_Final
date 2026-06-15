@@ -86,7 +86,54 @@ const MENU = [
 ];
 
 // Day-of-week demand multipliers: 0=Sun, 1=Mon … 6=Sat
+// Global fallback (used when a category is not found in CATEGORY_DOW)
 const DOW_MULT = [1.00, 0.72, 0.68, 1.55, 1.40, 0.88, 1.15];
+
+/**
+ * Per-category DOW multipliers.
+ * Starters / Desserts skew toward Fri–Sun (social outings, group events).
+ * Main - Veg skews more Mon–Thu (office crowd choosing vegetarian midweek).
+ * Main - Non Veg and Rice track the overall footfall curve.
+ * All arrays: [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+ */
+const CATEGORY_DOW = {
+  'Starters':       [1.10, 0.65, 0.62, 1.45, 1.30, 1.18, 1.52],
+  'Main - Non Veg': [1.05, 0.73, 0.70, 1.55, 1.40, 0.90, 1.25],
+  'Main - Veg':     [0.92, 0.80, 0.78, 1.50, 1.42, 0.95, 1.08],
+  'Breads':         [0.98, 0.73, 0.70, 1.54, 1.40, 0.90, 1.18],
+  'Rice':           [1.02, 0.72, 0.70, 1.52, 1.40, 0.88, 1.18],
+  'Desserts':       [1.28, 0.60, 0.58, 1.38, 1.25, 1.12, 1.52],
+};
+
+/**
+ * Per-category scaling applied to the FIFA uplift (fifa.mult - 1).
+ * Starters and Desserts surge most during group match viewings (sharing plates,
+ * celebratory sweets, Mango Lassi). Mains - Veg are least event-driven.
+ * Formula applied: effective_mult = 1 + (fifa.mult - 1) * CATEGORY_FIFA_SCALE[cat]
+ */
+const CATEGORY_FIFA_SCALE = {
+  'Starters':       1.60,  // groups pile on sharing plates during matches
+  'Desserts':       1.35,  // sweets, Mango Lassi, celebratory treats
+  'Breads':         1.15,  // ordered alongside starters for group tables
+  'Rice':           1.10,  // biryani-led uplift on match days
+  'Main - Non Veg': 1.00,  // baseline — full meals still ordered
+  'Main - Veg':     0.85,  // least group-event-sensitive
+};
+
+/**
+ * Per-category scaling for FESTIVAL events (evt.type === 'festival').
+ * At festivals like Eid, guests go straight to Biryani & NV mains —
+ * starters and breads are often skipped; rice/NV peak sharply.
+ * Formula applied: effective_mult = 1 + (evt.overallMult - 1) * CATEGORY_EVENT_SCALE[cat]
+ */
+const CATEGORY_EVENT_SCALE = {
+  'Main - Non Veg': 1.25,  // Biryani & NV dishes are the festival centrepiece
+  'Rice':           1.20,  // Rice-based dishes peak at festival gatherings
+  'Desserts':       1.12,  // Sweets are part of every celebration
+  'Main - Veg':     0.95,  // Slightly down as NV takes the spotlight
+  'Breads':         0.88,  // Guests skip naan when eating biryani
+  'Starters':       0.85,  // Diners go straight to mains at large gatherings
+};
 
 const BIRYANI_IDS = new Set([12, 13, 22, 32]);
 
@@ -346,10 +393,27 @@ function computeForecast(branchId, dishIds, days, startDate) {
       if (!dish) return;
       if (!forecast[dishId]) forecast[dishId] = [];
 
-      let mult = DOW_MULT[dow] * branchFactor;
-      if (evt.overallMult)  mult *= evt.overallMult;
+      // Per-category DOW multiplier (falls back to global DOW_MULT if category unknown)
+      const catDOW = (CATEGORY_DOW[dish.cat] ?? DOW_MULT)[dow];
+      let mult = catDOW * branchFactor;
+
+      if (evt.overallMult) {
+        if (evt.type === 'festival') {
+          // Festival events: scale the uplift/dip by category sensitivity
+          const evtScale = CATEGORY_EVENT_SCALE[dish.cat] ?? 1.0;
+          mult *= 1 + (evt.overallMult - 1) * evtScale;
+        } else {
+          // Weather / sports / other events: flat multiplier applies to all
+          mult *= evt.overallMult;
+        }
+      }
       if (BIRYANI_IDS.has(dishId) && evt.biryaniBoost) mult *= evt.biryaniBoost;
-      if (fifa.flag) mult *= fifa.mult;                // FIFA 2026 group-viewing boost
+
+      if (fifa.flag) {
+        // FIFA: scale the uplift by category — starters/desserts surge during match viewings
+        const fifaScale = CATEGORY_FIFA_SCALE[dish.cat] ?? 1.0;
+        mult *= 1 + (fifa.mult - 1) * fifaScale;
+      }
 
       const noise = 0.95 + rng() * 0.10;   // ±5% noise
       forecast[dishId].push(Math.round(dish.base * mult * noise));
