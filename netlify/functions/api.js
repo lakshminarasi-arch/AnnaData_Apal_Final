@@ -119,12 +119,12 @@ const CATEGORY_DOW = {
  * Formula applied: effective_mult = 1 + (fifa.mult - 1) * CATEGORY_FIFA_SCALE[cat]
  */
 const CATEGORY_FIFA_SCALE = {
-  'Starters':       1.60,  // groups pile on sharing plates during matches
+  'Starters':       1.60,  // groups pile on sharing plates & starters during matches
   'Desserts':       1.35,  // sweets, Mango Lassi, celebratory treats
-  'Breads':         1.15,  // ordered alongside starters for group tables
-  'Rice':           1.10,  // biryani-led uplift on match days
-  'Main - Non Veg': 1.00,  // baseline — full meals still ordered
-  'Main - Veg':     0.85,  // least group-event-sensitive
+  'Main - Non Veg': 1.10,  // biryani (NV) is the FIFA meal; also gets biryaniBoost
+  'Main - Veg':     0.80,  // veg mains down — tables pivot to sharing/biryani
+  'Breads':         0.75,  // plain naan/roti down — people order biryani not bread on match nights
+  'Rice':           0.70,  // plain rice (jeera, fried) down — biryani (NV) handles the rice demand
 };
 
 /**
@@ -518,17 +518,43 @@ function buildInsights(dishIds, startDate) {
     const stageStr  = FIFA_STAGE_LABEL[topFifa.stage] || topFifa.stage;
     const teamStr   = (topFifa.teams || []).filter(t => t !== 'TBD').join(', ') || 'Popular teams';
     const confPct   = Math.round((topFifa.confidence || 0) * 100);
+
+    // Check what day-of-week the match falls on to calibrate the message
+    const matchDow     = new Date(topFifa.ds).getDay(); // 0=Sun…6=Sat
+    const isWeakDow    = matchDow === 1 || matchDow === 2; // Mon or Tue — naturally low days
+    const isStrongDow  = matchDow === 3 || matchDow === 4 || matchDow === 6; // Wed/Thu/Sat — natural peaks
+    const dowName      = DOW_NAMES[matchDow];
+
+    // Context-aware headline and body
+    let fifaTitle, fifaBody;
+    if (isWeakDow) {
+      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — ${dowName} demand elevated above normal`;
+      fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date} (${dowName}). ` +
+                  `${dowName} is typically a quieter day, but the FIFA broadcast window (9:30–10:30 PM IST) will drive a ` +
+                  `<strong>+${pct}% uplift above normal ${dowName} levels</strong> — particularly for starters, biryani, and group tables. ` +
+                  `Overall volume will remain moderate compared to peak days (Wed–Thu), but the mix will shift toward sharing plates.`;
+    } else if (isStrongDow) {
+      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — amplifies an already-strong ${dowName}`;
+      fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date} (${dowName}), ` +
+                  `which is already a high-footfall day. The FIFA broadcast (9:30–10:30 PM IST) will push demand ` +
+                  `<strong>+${pct}% above what ${dowName} would normally deliver</strong> — expect an unusually busy evening ` +
+                  `with a clear swing toward starters, biryani, and group bookings.`;
+    } else {
+      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — expect a group-viewing surge`;
+      fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date}. ` +
+                  'Matches kicking off at noon EDT/CDT fall at <strong>9:30–10:30 PM IST</strong> — peak dinner and group-viewing time. ' +
+                  `Comparable screen-venue events show a <strong>+${pct}% demand uplift</strong> above the normal level for this day.`;
+    }
+
     insights.push({
       cls:'ic-sport', icon:'⚽',
-      title: `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — expect a group-viewing surge`,
+      title: fifaTitle,
       sub: `FIFA 2026 World Cup Signal · ${confPct}% Confidence`,
-      body: `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date}. ` +
-            'Matches kicking off at noon EDT/CDT fall at <strong>9:30–10:30 PM IST</strong> — peak dinner and group-viewing time. ' +
-            `Comparable screen-venue events show a <strong>+${pct}% demand uplift</strong> during broadcast windows.`,
+      body: fifaBody,
       impacts: [
-        { label:`Overall demand +${pct}%`,       up:true },
-        { label:'Group table bookings ↑',         up:true },
-        { label:'Starters & sharing plates ↑',    up:true },
+        { label:`+${pct}% vs normal ${dowName}`,   up:true },
+        { label:'Starters & biryani ↑',             up:true },
+        { label:'Group table bookings ↑',           up:true },
       ],
       recc: `<strong>Action:</strong> Switch all screens to FIFA coverage from 9 PM IST on ${topFifa.date}. ` +
             'Promote a "Match Day Platter" (starter combo + biryani). Pre-assign large tables for group bookings. ' +
