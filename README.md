@@ -316,7 +316,7 @@ The dataset `synthetic_historical_demand.csv` was **programmatically generated**
 
 | Group Members | 
 |------|
-| Lakshmi Narasimhan | Mithun Chakraborty | Murali Krishna Yeleshwarapu | Saurab Bhatia | Sumit Sharma | Aastha Narang | Sweety Panigrahi | 
+| Lakshmi Narasimhan |
 
 **Academic Year:** 2025–26
 
