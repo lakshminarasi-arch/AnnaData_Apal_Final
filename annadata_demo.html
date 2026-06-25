@@ -521,12 +521,12 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--cream);color:
       <div class="chart-head">
         <div><div class="chart-title">Predicted Demand by Dish</div><div class="chart-sub" id="chart-sub"></div></div>
         <div class="vtoggle">
-          <button class="vbtn on" onclick="setView('chart',this)">Chart</button>
-          <button class="vbtn" onclick="setView('table',this)">Table</button>
+          <button class="vbtn on" onclick="setView('table',this)">Table</button>
+          <button class="vbtn" onclick="setView('chart',this)">Chart</button>
         </div>
       </div>
-      <div id="chart-view"><div class="canvas-wrap"><canvas id="pred-chart"></canvas></div></div>
-      <div id="table-view" class="hidden"><div class="pred-table-wrap"><table class="pred-table" id="pred-table"></table></div></div>
+      <div id="table-view"><div class="pred-table-wrap"><table class="pred-table" id="pred-table"></table></div></div>
+      <div id="chart-view" class="hidden"><div class="canvas-wrap"><canvas id="pred-chart"></canvas></div></div>
     </div>
     <div class="action-row">
       <button class="btn-ghost" onclick="showScreen('sc-branches')">🏢 Switch Branch</button>
@@ -1327,12 +1327,11 @@ function setView(view, btn){
   btn.classList.add('on');
   document.getElementById('chart-view').classList.toggle('hidden', view!=='chart');
   document.getElementById('table-view').classList.toggle('hidden', view!=='table');
-  if(view==='table'){
-    // Give the browser one frame to paint the table before scrolling
-    requestAnimationFrame(()=>{
-      document.getElementById('table-view').scrollIntoView({behavior:'smooth', block:'start'});
-    });
-  }
+  // Scroll the newly-revealed section into view
+  requestAnimationFrame(()=>{
+    document.getElementById(view==='chart' ? 'chart-view' : 'table-view')
+      .scrollIntoView({behavior:'smooth', block:'start'});
+  });
 }
 
 /* ══════════════════════════════════════════════════════
