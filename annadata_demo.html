@@ -478,9 +478,9 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--cream);color:
   <div class="spinner"></div>
   <div class="loading-msg" id="loading-msg">Initialising Prediction Engine...</div>
   <div class="loading-steps" id="loading-steps">
-    <div class="lstep"><div class="lsdot active" id="ls1"></div><span>Loading historical POS data</span></div>
-    <div class="lstep"><div class="lsdot" id="ls2"></div><span>Applying external signals (weather, festivals, IPL)</span></div>
-    <div class="lstep"><div class="lsdot" id="ls3"></div><span>Running XGBoost + Seasonal model</span></div>
+    <div class="lstep"><div class="lsdot active" id="ls1"></div><span>Loading historical data</span></div>
+    <div class="lstep"><div class="lsdot" id="ls2"></div><span>Applying external signals (weather, festivals, FIFA)</span></div>
+    <div class="lstep"><div class="lsdot" id="ls3"></div><span>Running demand model & signal engine</span></div>
     <div class="lstep"><div class="lsdot" id="ls4"></div><span>Generating insights & BOM</span></div>
   </div>
   <div class="progress-bar-wrap"><div class="progress-bar-fill" id="prog-bar"></div></div>
@@ -513,9 +513,8 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--cream);color:
     <div class="ph"><h1 id="pred-title">Demand Forecast</h1><p id="pred-sub"></p></div>
     <div class="kpi-row" id="kpi-row"></div>
     <div class="model-badge-bar">
-      <span class="mbadge">XGBoost + Prophet</span>
-      Model accuracy on validation set: <strong>91.3% MAPE</strong> &nbsp;·&nbsp; Confidence interval: ±12% &nbsp;·&nbsp;
-      External signals: Weather ✓ &nbsp; Festivals ✓ &nbsp; IPL ✓ &nbsp; Payday cycle ✓
+      <span class="mbadge">Rules-Based Demand Model + AI Insights</span>
+      External signals: Weather ✓ &nbsp; Festivals ✓ &nbsp; FIFA 2026 ✓ &nbsp; IPL ✓ &nbsp; Payday cycle ✓
     </div>
     <div class="chart-box">
       <div class="chart-head">
@@ -1133,9 +1132,9 @@ async function runPrediction(){
 function animateLoading(callback){
   const bar = document.getElementById('prog-bar');
   const msgs = [
-    'Loading historical POS data...',
-    'Applying external signals (Eid, IPL, Rain forecast)...',
-    'Running XGBoost + Seasonal model...',
+    'Loading historical data...',
+    'Applying external signals (Eid, FIFA 2026, Rain forecast)...',
+    'Running demand model & signal engine...',
     'Generating insights & BOM...'
   ];
   const dots = ['ls1','ls2','ls3','ls4'];
