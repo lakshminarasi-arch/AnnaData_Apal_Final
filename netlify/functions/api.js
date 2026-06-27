@@ -175,46 +175,49 @@ const EVENT_MAP = {
 };
 
 // ── FIFA 2026 DEMAND SIGNAL ────────────────────────────────────────────────────
-// Only matches whose noon kickoff in North America (EDT/CDT) falls during IST
-// prime dinner (9:30–10:30 PM IST).  Group G (all PDT venues) is excluded.
-// confidence = probability that a popular-team match actually hits IST dinner.
+// Teams and dates verified against CBS Sports/FIFA.com actual June 2026 schedule.
+// istFactor: fraction of peak uplift based on ACTUAL kickoff time vs IST prime dinner.
+//   1.00 = noon EDT/CDT  → 9:30–10:30 PM IST  ← prime; full restaurant impact
+//   0.25–0.35 = 3 PM EDT → 12:30–1:30 AM IST  ← partial; late-night fans only
+//   0.00 = 6 PM+ EDT     → 3:30 AM IST+        ← restaurant closed; zero impact
+// confidence = probability the listed popular team(s) are actually playing that date.
 //
-// tier 0 = Super (T1 vs T1, knockouts only)     stage = group|r16|qf|sf|final
-// tier 1 = Argentina, Brazil
-// tier 2 = France, Portugal, Spain, England
-// tier 3 = Germany, Mexico
-// On dates with multiple popular teams, highest tier (lowest number) is pre-resolved.
+// tier 0 = Super (T1 vs T1, knockouts)  tier 1 = Argentina / Brazil
+// tier 2 = France / Portugal / Spain / England   tier 3 = Germany / Mexico
 const FIFA_EVENTS = {
-  // ── GROUP STAGE ──────────────────────────────────────────────────────────────
-  '2026-06-11': { teams:['Mexico'],                         tier:3, stage:'group', confidence:0.85 },
-  '2026-06-13': { teams:['Brazil'],                         tier:1, stage:'group', confidence:1.00 },
-  '2026-06-14': { teams:['Germany'],                        tier:3, stage:'group', confidence:0.80 },
-  '2026-06-15': { teams:['Spain'],                          tier:2, stage:'group', confidence:0.85 },
-  '2026-06-16': { teams:['Argentina','France'],             tier:1, stage:'group', confidence:0.80 },
-  '2026-06-17': { teams:['Brazil','England'],               tier:1, stage:'group', confidence:1.00 },
-  '2026-06-18': { teams:['Mexico'],                         tier:3, stage:'group', confidence:0.85 },
-  '2026-06-19': { teams:['Germany'],                        tier:3, stage:'group', confidence:0.80 },
-  '2026-06-20': { teams:['Spain'],                          tier:2, stage:'group', confidence:0.85 },
-  '2026-06-21': { teams:['France'],                         tier:2, stage:'group', confidence:1.00 },
-  '2026-06-22': { teams:['Argentina','England'],            tier:1, stage:'group', confidence:0.80 },
-  '2026-06-24': { teams:['Brazil'],                         tier:1, stage:'group', confidence:1.00 },
-  '2026-06-25': { teams:['Mexico','Germany'],               tier:3, stage:'group', confidence:0.83 },
-  '2026-06-26': { teams:['Spain','France'],                 tier:2, stage:'group', confidence:0.93 },
-  '2026-06-27': { teams:['Argentina','England','Portugal'], tier:1, stage:'group', confidence:0.80 },
-  // ── ROUND OF 16 (placeholder dates — popular teams projected) ────────────────
-  '2026-07-04': { teams:['TBD'], tier:2, stage:'r16',   confidence:0.60 },
-  '2026-07-05': { teams:['TBD'], tier:1, stage:'r16',   confidence:0.65 },
-  '2026-07-06': { teams:['TBD'], tier:2, stage:'r16',   confidence:0.60 },
-  '2026-07-07': { teams:['TBD'], tier:1, stage:'r16',   confidence:0.65 },
-  // ── QUARTER-FINALS ────────────────────────────────────────────────────────────
-  '2026-07-09': { teams:['TBD'], tier:1, stage:'qf',    confidence:0.70 },
-  '2026-07-10': { teams:['TBD'], tier:2, stage:'qf',    confidence:0.65 },
-  '2026-07-11': { teams:['TBD'], tier:1, stage:'qf',    confidence:0.70 },
-  // ── SEMI-FINALS ───────────────────────────────────────────────────────────────
-  '2026-07-14': { teams:['TBD'], tier:1, stage:'sf',    confidence:0.80 },
-  '2026-07-15': { teams:['TBD'], tier:1, stage:'sf',    confidence:0.80 },
-  // ── FINAL ─────────────────────────────────────────────────────────────────────
-  '2026-07-19': { teams:['TBD'], tier:0, stage:'final', confidence:0.90 },
+  // ── GROUP STAGE (all times Eastern) ─────────────────────────────────────────
+  '2026-06-11': { teams:['Mexico'],             tier:3, stage:'group', confidence:0.85, istFactor:0.25 }, // 3 PM ET → 12:30 AM IST
+  '2026-06-13': { teams:['Brazil'],             tier:1, stage:'group', confidence:1.00, istFactor:0.00 }, // 6 PM ET → 3:30 AM IST ❌
+  '2026-06-14': { teams:['Germany'],            tier:3, stage:'group', confidence:0.80, istFactor:0.90 }, // 1 PM ET → 10:30 PM IST ✓
+  '2026-06-15': { teams:['Spain'],              tier:2, stage:'group', confidence:0.85, istFactor:1.00 }, // 12 PM ET → 9:30 PM IST ✓
+  '2026-06-16': { teams:['Argentina','France'], tier:1, stage:'group', confidence:1.00, istFactor:0.90 }, // Argentina noon CDT=1PM ET → 10:30 PM IST ✓ (est.)
+  '2026-06-17': { teams:['England','Portugal'], tier:2, stage:'group', confidence:1.00, istFactor:0.30 }, // 5-match day; mix of 3–6 PM ET slots (est.)
+  '2026-06-18': { teams:['Mexico'],             tier:3, stage:'group', confidence:0.85, istFactor:0.00 }, // evening slot → 6:30 AM IST ❌
+  '2026-06-19': { teams:['Brazil'],             tier:1, stage:'group', confidence:1.00, istFactor:0.25 }, // Brazil vs Haiti; ~3 PM ET est.
+  '2026-06-20': { teams:['Germany'],            tier:3, stage:'group', confidence:0.80, istFactor:0.20 }, // 4 PM ET → 1:30 AM IST
+  '2026-06-21': { teams:['Spain'],              tier:2, stage:'group', confidence:1.00, istFactor:1.00 }, // 12 PM ET → 9:30 PM IST ✓
+  '2026-06-22': { teams:['Argentina'],          tier:1, stage:'group', confidence:1.00, istFactor:0.90 }, // 1 PM ET → 10:30 PM IST ✓ PRIME
+  '2026-06-23': { teams:['Portugal','England'], tier:2, stage:'group', confidence:1.00, istFactor:0.90 }, // Portugal 1 PM ET → 10:30 PM IST ✓
+  '2026-06-24': { teams:['Brazil','Mexico'],    tier:1, stage:'group', confidence:1.00, istFactor:0.00 }, // Brazil 6PM ET + Mexico 9PM ET → both overnight ❌
+  '2026-06-25': { teams:['Germany'],            tier:3, stage:'group', confidence:0.80, istFactor:0.20 }, // 4 PM ET → 1:30 AM IST
+  '2026-06-26': { teams:['France','Spain'],     tier:2, stage:'group', confidence:0.93, istFactor:0.30 }, // France 3PM ET=12:30 AM IST; Spain 8PM ET=dead ❌
+  '2026-06-27': { teams:['England','Argentina','Portugal'], tier:2, stage:'group', confidence:0.80, istFactor:0.08 }, // best: England 5PM ET=2:30 AM; rest worse
+  // ── ROUND OF 16 ──────────────────────────────────────────────────────────────
+  // CBS-confirmed slots: Jul 4(1PM/5PM), Jul 5(4PM/8PM), Jul 6(3PM/8PM), Jul 7(12PM/4PM)
+  '2026-07-04': { teams:['TBD'], tier:2, stage:'r16', confidence:0.60, istFactor:0.65 }, // 1PM=prime ✓; 5PM=2:30 AM IST
+  '2026-07-05': { teams:['TBD'], tier:1, stage:'r16', confidence:0.65, istFactor:0.20 }, // 4PM & 8PM ET → both bad
+  '2026-07-06': { teams:['TBD'], tier:2, stage:'r16', confidence:0.60, istFactor:0.20 }, // 3PM & 8PM ET
+  '2026-07-07': { teams:['TBD'], tier:1, stage:'r16', confidence:0.65, istFactor:0.55 }, // 12PM=prime ✓; 4PM=1:30 AM IST
+  // ── QUARTER-FINALS ───────────────────────────────────────────────────────────
+  // CBS-confirmed: Jul 9(4PM), Jul 10(3PM), Jul 11(5PM/9PM)
+  '2026-07-09': { teams:['TBD'], tier:1, stage:'qf', confidence:0.70, istFactor:0.20 }, // 4PM ET → 1:30 AM IST
+  '2026-07-10': { teams:['TBD'], tier:2, stage:'qf', confidence:0.65, istFactor:0.30 }, // 3PM ET → 12:30 AM IST
+  '2026-07-11': { teams:['TBD'], tier:1, stage:'qf', confidence:0.70, istFactor:0.08 }, // 5PM/9PM ET → 2:30/6:30 AM IST ❌
+  // ── SEMI-FINALS ──────────────────────────────────────────────────────────────
+  '2026-07-14': { teams:['TBD'], tier:1, stage:'sf', confidence:0.80, istFactor:0.35 }, // 3PM ET → 12:30 AM IST (fans stay up)
+  '2026-07-15': { teams:['TBD'], tier:1, stage:'sf', confidence:0.80, istFactor:0.35 }, // 3PM ET → 12:30 AM IST
+  // ── FINAL ────────────────────────────────────────────────────────────────────
+  '2026-07-19': { teams:['TBD'], tier:0, stage:'final', confidence:0.90, istFactor:0.50 }, // 3PM ET → 12:30 AM IST (fans WILL stay up)
 };
 
 // Demand multipliers by [tier][stage]. All values > 1.0: restaurant has screens,
@@ -344,8 +347,8 @@ function getFifaMultiplier(dateStr) {
   if (!stageMults) return { mult:1.0, label:'', flag:0 };
 
   const rawMult = stageMults[evt.stage] || 1.0;
-  // Confidence-weighted blend: 1.0 at confidence=0, rawMult at confidence=1.0
-  const mult    = parseFloat((1.0 + (rawMult - 1.0) * evt.confidence).toFixed(3));
+  // Confidence × IST-timing weighted: no uplift when match is at 3AM+ IST (istFactor≈0)
+  const mult    = parseFloat((1.0 + (rawMult - 1.0) * evt.confidence * (evt.istFactor ?? 1.0)).toFixed(3));
 
   const stageStr = FIFA_STAGE_LABEL[evt.stage] || evt.stage;
   const teamStr  = evt.teams.filter(t => t !== 'TBD').join(' / ') || 'Top teams';
@@ -482,7 +485,8 @@ function buildInsights(dishIds, startDate) {
       fifaWindow.push({ ...FIFA_EVENTS[ds], date: fmtDate(d), ds });
     }
   }
-  fifaWindow.sort((a, b) => a.tier - b.tier); // tier 0 = super = most important first
+  // Sort by effective IST impact (desc): a prime-time tier-2 Spain match beats a 3AM tier-1 Brazil match
+  fifaWindow.sort((a, b) => getFifaMultiplier(b.ds).mult - getFifaMultiplier(a.ds).mult);
   const hasFifa = fifaWindow.length > 0;
   const topFifa = fifaWindow[0] || {};
 
@@ -513,37 +517,74 @@ function buildInsights(dishIds, startDate) {
   }
 
   if (hasFifa) {
-    const { mult }  = getFifaMultiplier(topFifa.ds);
-    const pct       = Math.round((mult - 1) * 100);
-    const stageStr  = FIFA_STAGE_LABEL[topFifa.stage] || topFifa.stage;
-    const teamStr   = (topFifa.teams || []).filter(t => t !== 'TBD').join(', ') || 'Popular teams';
-    const confPct   = Math.round((topFifa.confidence || 0) * 100);
+    const { mult }   = getFifaMultiplier(topFifa.ds);
+    const pct        = Math.round((mult - 1) * 100);
+    const stageStr   = FIFA_STAGE_LABEL[topFifa.stage] || topFifa.stage;
+    const teamStr    = (topFifa.teams || []).filter(t => t !== 'TBD').join(', ') || 'Popular teams';
+    const confPct    = Math.round((topFifa.confidence || 0) * 100);
+    const istFactor  = topFifa.istFactor ?? 1.0;
 
-    // Check what day-of-week the match falls on to calibrate the message
-    const matchDow     = new Date(topFifa.ds).getDay(); // 0=Sun…6=Sat
-    const isWeakDow    = matchDow === 1 || matchDow === 2; // Mon or Tue — naturally low days
-    const isStrongDow  = matchDow === 3 || matchDow === 4 || matchDow === 6; // Wed/Thu/Sat — natural peaks
-    const dowName      = DOW_NAMES[matchDow];
+    // Human-readable IST kickoff window based on istFactor
+    const istTimeLabel = istFactor >= 0.80 ? '9:30–10:30 PM IST'
+                       : istFactor >= 0.20 ? '12:30–1:30 AM IST'
+                       : istFactor >= 0.05 ? '2:30–4:00 AM IST'
+                       :                     '3:30 AM IST or later';
 
-    // Context-aware headline and body
-    let fifaTitle, fifaBody;
-    if (isWeakDow) {
-      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — ${dowName} demand elevated above normal`;
-      fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date} (${dowName}). ` +
-                  `${dowName} is typically a quieter day, but the FIFA broadcast window (9:30–10:30 PM IST) will drive a ` +
-                  `<strong>+${pct}% uplift above normal ${dowName} levels</strong> — particularly for starters, biryani, and group tables. ` +
-                  `Overall volume will remain moderate compared to peak days (Wed–Thu), but the mix will shift toward sharing plates.`;
-    } else if (isStrongDow) {
-      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — amplifies an already-strong ${dowName}`;
-      fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date} (${dowName}), ` +
-                  `which is already a high-footfall day. The FIFA broadcast (9:30–10:30 PM IST) will push demand ` +
-                  `<strong>+${pct}% above what ${dowName} would normally deliver</strong> — expect an unusually busy evening ` +
-                  `with a clear swing toward starters, biryani, and group bookings.`;
+    const matchDow    = new Date(topFifa.ds).getDay();
+    const isWeakDow   = matchDow === 1 || matchDow === 2;
+    const isStrongDow = matchDow === 3 || matchDow === 4 || matchDow === 6;
+    const dowName     = DOW_NAMES[matchDow];
+
+    let fifaTitle, fifaBody, fifaImpacts, fifaRecc;
+
+    if (istFactor < 0.10) {
+      // Kickoff at very poor IST time — minimal/no restaurant impact
+      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — kickoff at ${istTimeLabel}, minimal India impact`;
+      fifaBody  = `${teamStr} play on ${topFifa.date}, but the kickoff falls at <strong>${istTimeLabel}</strong> — ` +
+                  `well past Bengaluru dining hours. No significant walk-in viewing demand is expected. ` +
+                  `Plan staffing and prep quantities normally for this day.`;
+      fifaImpacts = [{ label:'Kickoff past India dining hours', up:false }];
+      fifaRecc  = `<strong>Note:</strong> This match is at ${istTimeLabel}. No screen-event prep needed — it won't drive walk-in traffic during dinner service.`;
+
+    } else if (istFactor < 0.45) {
+      // Late-night kickoff — partial uplift from hardcore fans and late-night orders
+      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — late kickoff (${istTimeLabel}), limited uplift`;
+      fifaBody  = `${teamStr} play on ${topFifa.date} with a kickoff at <strong>${istTimeLabel}</strong>. ` +
+                  `Hardcore fans may extend their evening, but group walk-in demand will be significantly lower than a prime-time match. ` +
+                  `Expect a modest <strong>+${pct}% uplift</strong> above normal ${dowName} levels — primarily late-night delivery and bar traffic.`;
+      fifaImpacts = [
+        { label:`+${pct}% (late-night, reduced)`, up:true },
+        { label:'Late-night delivery uptick',      up:true },
+      ];
+      fifaRecc  = `<strong>Action:</strong> No need to rearrange seating for group viewing. Ensure delivery packaging is stocked for late orders on ${topFifa.date}. ` +
+                  `Don't cut kitchen staff too early — some late-night walk-ins possible.`;
+
     } else {
-      fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — expect a group-viewing surge`;
-      fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date}. ` +
-                  'Matches kicking off at noon EDT/CDT fall at <strong>9:30–10:30 PM IST</strong> — peak dinner and group-viewing time. ' +
-                  `Comparable screen-venue events show a <strong>+${pct}% demand uplift</strong> above the normal level for this day.`;
+      // Prime or near-prime IST time — full screen-viewing surge expected
+      if (isWeakDow) {
+        fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — ${dowName} demand elevated above normal`;
+        fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date} (${dowName}). ` +
+                    `${dowName} is typically a quieter day, but the <strong>${istTimeLabel}</strong> kickoff will drive a ` +
+                    `<strong>+${pct}% uplift above normal ${dowName} levels</strong> — particularly for starters, biryani, and group tables.`;
+      } else if (isStrongDow) {
+        fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — amplifies an already-strong ${dowName}`;
+        fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date} (${dowName}), ` +
+                    `which is already a high-footfall day. The <strong>${istTimeLabel}</strong> kickoff will push demand ` +
+                    `<strong>+${pct}% above what ${dowName} would normally deliver</strong> — expect an unusually busy evening.`;
+      } else {
+        fifaTitle = `FIFA 2026 ${stageStr} (${teamStr}) on ${topFifa.date} — expect a group-viewing surge`;
+        fifaBody  = `${teamStr} ${topFifa.stage === 'group' ? 'play' : 'compete'} on ${topFifa.date}. ` +
+                    `Kickoff at <strong>${istTimeLabel}</strong> is peak dinner and group-viewing time. ` +
+                    `Comparable screen-venue events show a <strong>+${pct}% demand uplift</strong> above the normal level for this day.`;
+      }
+      fifaImpacts = [
+        { label:`+${pct}% vs normal ${dowName}`, up:true },
+        { label:'Starters & biryani ↑',          up:true },
+        { label:'Group table bookings ↑',         up:true },
+      ];
+      fifaRecc = `<strong>Action:</strong> Switch all screens to FIFA coverage from 9 PM IST on ${topFifa.date}. ` +
+                 'Promote a "Match Day Platter" (starter combo + biryani). Pre-assign large tables for group bookings. ' +
+                 'Stock extra starters and beverages for sharing orders.';
     }
 
     insights.push({
@@ -551,14 +592,8 @@ function buildInsights(dishIds, startDate) {
       title: fifaTitle,
       sub: `FIFA 2026 World Cup Signal · ${confPct}% Confidence`,
       body: fifaBody,
-      impacts: [
-        { label:`+${pct}% vs normal ${dowName}`,   up:true },
-        { label:'Starters & biryani ↑',             up:true },
-        { label:'Group table bookings ↑',           up:true },
-      ],
-      recc: `<strong>Action:</strong> Switch all screens to FIFA coverage from 9 PM IST on ${topFifa.date}. ` +
-            'Promote a "Match Day Platter" (starter combo + biryani). Pre-assign large tables for group bookings. ' +
-            'Stock extra starters and beverages for sharing orders.',
+      impacts: fifaImpacts,
+      recc: fifaRecc,
     });
   }
 
