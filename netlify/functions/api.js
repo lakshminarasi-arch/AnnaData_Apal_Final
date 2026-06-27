@@ -449,8 +449,100 @@ function buildBOM(dishIds, forecast) {
   return vendorMap;
 }
 
+/**
+ * Call Claude Haiku to generate 3 dynamic demand insights (income cycle, trend, risk).
+ * Returns null on any failure so the caller can serve static fallback cards instead.
+ */
+async function generateLLMInsights(dishIds, startDate, forecastData, branch) {
+  const apiKey = process.env.ANTHROPIC_API_KEY_ANNADATA;
+  if (!apiKey) return null;
+
+  // Compact per-dish 7-day total (keeps prompt tokens low)
+  const dishSummary = dishIds.map(id => {
+    const dish = MENU.find(m => m.id === id);
+    if (!dish) return null;
+    const weekTotal = (forecastData.forecast[id] || []).reduce((a, b) => a + b, 0);
+    return `${dish.name} (${dish.cat}): ${weekTotal} servings`;
+  }).filter(Boolean).join('\n');
+
+  // Week-of-month context
+  const dateObj     = new Date(startDate);
+  const weekOfMonth = Math.ceil(dateObj.getDate() / 7);
+  const monthName   = dateObj.toLocaleDateString('en-US', { month:'long' });
+
+  // Day-by-day schedule with events
+  const daySummary = forecastData.dates.map((date, i) => {
+    const evtLabel  = forecastData.eventLabels[i];
+    const fifaLabel = (forecastData.fifaLabels || [])[i];
+    const tags = [evtLabel, fifaLabel].filter(Boolean).join(' + ');
+    return `${forecastData.daysOfWeek[i]} ${date}${tags ? ` [${tags}]` : ''}`;
+  }).join(', ');
+
+  // Category mix in selection
+  const catCounts = {};
+  dishIds.forEach(id => {
+    const cat = MENU.find(m => m.id === id)?.cat;
+    if (cat) catCounts[cat] = (catCounts[cat] || 0) + 1;
+  });
+  const catMix = Object.entries(catCounts).map(([k, v]) => `${k}:${v}`).join(', ');
+
+  const prompt =
+`You are a demand analyst for AnnaData, an Indian restaurant chain in Bengaluru. Generate 3 focused, actionable insights for the restaurant manager.
+
+CONTEXT:
+Branch: ${branch.name} (${branch.covers} covers)
+Forecast period: ${forecastData.dates[0]} to ${forecastData.dates[forecastData.dates.length - 1]} (${monthName}, week ${weekOfMonth} of month)
+Schedule: ${daySummary}
+Category mix: ${catMix}
+7-day demand by dish:
+${dishSummary}
+
+Return ONLY a raw JSON array — no markdown, no explanation, nothing else. Exactly 3 items:
+[
+  {"cls":"ic-pay","icon":"💰","title":"...","sub":"Income Cycle Signal · Medium Confidence","body":"... <strong>key stat</strong> ...","impacts":[{"label":"...","up":true},{"label":"...","up":true}],"recc":"<strong>Action:</strong> ..."},
+  {"cls":"ic-trend","icon":"📈","title":"...","sub":"Trend Signal · High Confidence","body":"...","impacts":[{"label":"...","up":true},{"label":"...","up":true}],"recc":"..."},
+  {"cls":"ic-alert","icon":"⚠️","title":"...","sub":"Risk Signal · Medium Confidence","body":"...","impacts":[{"label":"...","up":false},{"label":"...","up":false}],"recc":"..."}
+]
+
+Rules:
+1. ic-pay (💰): Salary cycle for ${monthName} week ${weekOfMonth}. Weeks 1–2 → premium upsell opportunity. Weeks 3–4 → warn about demand softening on premium dishes.
+2. ic-trend (📈): Pick the single highest-demand dish from the forecast above. Give a specific stocking or prep tip naming that dish.
+3. ic-alert (⚠️): Identify the weakest demand day from the schedule (Mon/Tue are usually low). Suggest a concrete mitigation — combo offer, reduced batch prep, or adjusted staffing.
+Keep each "body" to 2 sentences. Use <strong> for 1–2 numbers per insight. Name the actual dishes from the selection in recommendations.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type':      'application/json',
+      'x-api-key':         apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 1200,
+      messages:   [{ role:'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '');
+    throw new Error(`Anthropic API ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+  const text = (data.content[0]?.text || '').trim();
+
+  // Extract JSON array — tolerate any accidental wrapper text
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('No JSON array found in Haiku response');
+
+  const parsed = JSON.parse(match[0]);
+  if (!Array.isArray(parsed) || parsed.length < 1) throw new Error('Empty or malformed insight array');
+  return parsed;
+}
+
 /** Generate contextual AI insights */
-function buildInsights(dishIds, startDate) {
+async function buildInsights(dishIds, startDate, forecastData, branch) {
   const start = new Date(startDate || tomorrowISO());
   const end   = new Date(start); end.setDate(end.getDate() + 6);
 
@@ -608,36 +700,51 @@ function buildInsights(dishIds, startDate) {
     });
   }
 
-  insights.push({
-    cls:'ic-pay', icon:'💰',
-    title: 'Payday weekend effect – premium dishes will see uplift',
-    sub: 'Income Cycle Signal · Medium Confidence',
-    body: 'Customers tend to order <strong>25–30% more premium dishes</strong> in the first two weeks of the month after salary credit.',
-    impacts: hasButterChicken
-      ? [{label:'Butter Chicken ↑25%', up:true}, {label:'Premium dishes ↑20%', up:true}]
-      : [{label:'Premium dishes ↑20%', up:true}, {label:'Avg ticket size ↑18%', up:true}],
-    recc: '<strong>Action:</strong> Ensure premium ingredients (cashews, cream, high-quality paneer) are fully stocked. A good time to trial new premium dish adds.',
-  });
+  // ── LLM-POWERED INSIGHTS (Claude Haiku) ─────────────────────────────────────
+  // Generates context-aware income/trend/risk cards using the actual forecast data.
+  // Falls back to static cards silently if the API key is absent or the call fails.
+  let llmCards = null;
+  try {
+    llmCards = await generateLLMInsights(dishIds, startDate, forecastData, branch);
+  } catch (e) {
+    console.error('[AnnaData] Haiku insight generation failed – using static fallback:', e.message);
+  }
 
-  insights.push({
-    cls:'ic-trend', icon:'📈',
-    title: 'Dessert demand trending up – 3-week high expected',
-    sub: 'Historical Trend Signal · High Confidence',
-    body: hasGulabJamun
-      ? 'Gulab Jamun has seen a steady 3-week demand increase at this branch, currently running <strong>18% above its 60-day average</strong>. Festival week is likely to sustain this.'
-      : 'Dessert orders have been on a 3-week upward trend at this branch, running <strong>18% above the 60-day average</strong>. Festival week is likely to sustain this.',
-    impacts: [{label:'Desserts ↑18%', up:true}, {label:'Seasonal trend', up:true}],
-    recc: '<strong>Action:</strong> Pre-prepare dessert bases (milk reduction for Kheer, dough for Gulab Jamun) to avoid kitchen bottlenecks during peak service.',
-  });
+  if (llmCards && Array.isArray(llmCards) && llmCards.length >= 3) {
+    insights.push(...llmCards.slice(0, 3));
+  } else {
+    // ── Static fallback (no API key, or Haiku call failed) ───────────────────
+    insights.push({
+      cls:'ic-pay', icon:'💰',
+      title: 'Payday weekend effect – premium dishes will see uplift',
+      sub: 'Income Cycle Signal · Medium Confidence',
+      body: 'Customers tend to order <strong>25–30% more premium dishes</strong> in the first two weeks of the month after salary credit.',
+      impacts: hasButterChicken
+        ? [{label:'Butter Chicken ↑25%', up:true}, {label:'Premium dishes ↑20%', up:true}]
+        : [{label:'Premium dishes ↑20%', up:true}, {label:'Avg ticket size ↑18%', up:true}],
+      recc: '<strong>Action:</strong> Ensure premium ingredients (cashews, cream, high-quality paneer) are fully stocked. A good time to trial new premium dish adds.',
+    });
 
-  insights.push({
-    cls:'ic-alert', icon:'⚠️',
-    title: 'Mid-period lull expected from Day 6 onwards',
-    sub: 'Income Cycle Signal · Medium Confidence',
-    body: 'Demand typically softens toward the end of the forecast window as the monthly salary cycle hits its mid-month low. Expect a <strong>15–20% dip</strong> in premium dish ordering relative to any festival peaks.',
-    impacts: [{label:'Overall demand ↓17%', up:false}, {label:'Premium dishes ↓22%', up:false}],
-    recc: '<strong>Action:</strong> Avoid over-ordering perishable ingredients for the final forecast days. Plan for smaller batch preparation and consider a "Happy Hours" offer to sustain traffic.',
-  });
+    insights.push({
+      cls:'ic-trend', icon:'📈',
+      title: 'Dessert demand trending up – 3-week high expected',
+      sub: 'Historical Trend Signal · High Confidence',
+      body: hasGulabJamun
+        ? 'Gulab Jamun has seen a steady 3-week demand increase at this branch, currently running <strong>18% above its 60-day average</strong>. Festival week is likely to sustain this.'
+        : 'Dessert orders have been on a 3-week upward trend at this branch, running <strong>18% above the 60-day average</strong>. Festival week is likely to sustain this.',
+      impacts: [{label:'Desserts ↑18%', up:true}, {label:'Seasonal trend', up:true}],
+      recc: '<strong>Action:</strong> Pre-prepare dessert bases (milk reduction for Kheer, dough for Gulab Jamun) to avoid kitchen bottlenecks during peak service.',
+    });
+
+    insights.push({
+      cls:'ic-alert', icon:'⚠️',
+      title: 'Mid-period lull expected from Day 6 onwards',
+      sub: 'Income Cycle Signal · Medium Confidence',
+      body: 'Demand typically softens toward the end of the forecast window as the monthly salary cycle hits its mid-month low. Expect a <strong>15–20% dip</strong> in premium dish ordering relative to any festival peaks.',
+      impacts: [{label:'Overall demand ↓17%', up:false}, {label:'Premium dishes ↓22%', up:false}],
+      recc: '<strong>Action:</strong> Avoid over-ordering perishable ingredients for the final forecast days. Plan for smaller batch preparation and consider a "Happy Hours" offer to sustain traffic.',
+    });
+  }
 
   return insights;
 }
@@ -710,11 +817,14 @@ exports.handler = async (event) => {
 
       // ── GET /api?endpoint=insights&branch=kor&dishes=11,12&startDate=... ──
       case 'insights': {
+        const branchId  = params.branch || 'kor';
         const dishIds   = params.dishes
           ? params.dishes.split(',').map(Number).filter(Boolean)
           : MENU.map(m => m.id);
         const startDate = params.startDate || tomorrowISO();
-        const insights  = buildInsights(dishIds, startDate);
+        const branch       = BRANCHES.find(b => b.id === branchId) || BRANCHES[0];
+        const forecastData = computeForecast(branchId, dishIds, 7, startDate);
+        const insights     = await buildInsights(dishIds, startDate, forecastData, branch);
         return ok({ insights, generatedAt: new Date().toISOString() });
       }
 
